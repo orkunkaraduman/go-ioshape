@@ -16,8 +16,8 @@ const (
 
 func TestReader(t *testing.T) {
 	bu := NewBucket()
-	bu.Set(128*1024, 0)
-	size := 4 * 128 * 1024
+	bu.Set(64*1024, 0)
+	size := 4 * 64 * 1024
 
 	var wg sync.WaitGroup
 	f := func(r io.Reader) {
@@ -36,13 +36,19 @@ func TestReader(t *testing.T) {
 		fmt.Println(time.Now().Sub(start))
 	}
 
-	for i := 0; i < 4; i++ {
+	j := 4
+	rrs := make([]io.Reader, j)
+	for i := 0; i < j; i++ {
 		resp, err := http.Get(testURL)
 		if err != nil {
 			panic(err)
 		}
+		rrs[i] = resp.Body
 		wg.Add(1)
-		go f(resp.Body)
+	}
+	for i := 0; i < j; i++ {
+		fmt.Println(time.Now())
+		go f(rrs[i])
 	}
 
 	wg.Wait()
@@ -51,8 +57,8 @@ func TestReader(t *testing.T) {
 
 func TestWriter(t *testing.T) {
 	bu := NewBucket()
-	bu.Set(128*1024, 0)
-	size := 4 * 128 * 1024
+	bu.Set(64*1024, 0)
+	size := 4 * 64 * 1024
 
 	var wg sync.WaitGroup
 	f := func(r io.Reader) {
@@ -71,13 +77,19 @@ func TestWriter(t *testing.T) {
 		fmt.Println(time.Now().Sub(start))
 	}
 
-	for i := 0; i < 4; i++ {
+	j := 4
+	rrs := make([]io.Reader, j)
+	for i := 0; i < j; i++ {
 		resp, err := http.Get(testURL)
 		if err != nil {
 			panic(err)
 		}
+		rrs[i] = resp.Body
 		wg.Add(1)
-		go f(resp.Body)
+	}
+	for i := 0; i < j; i++ {
+		fmt.Println(time.Now())
+		go f(rrs[i])
 	}
 
 	wg.Wait()
@@ -106,13 +118,19 @@ func TestStopping(t *testing.T) {
 		fmt.Println(time.Now().Sub(start))
 	}
 
-	for i := 0; i < 4; i++ {
+	j := 4
+	rrs := make([]io.Reader, j)
+	for i := 0; i < j; i++ {
 		resp, err := http.Get(testURL)
 		if err != nil {
 			panic(err)
 		}
+		rrs[i] = resp.Body
 		wg.Add(1)
-		go f(resp.Body)
+	}
+	for i := 0; i < j; i++ {
+		fmt.Println(time.Now())
+		go f(rrs[i])
 	}
 	time.Sleep(8 * time.Second)
 	bu.Stop()
