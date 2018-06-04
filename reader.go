@@ -2,6 +2,7 @@ package ioshape
 
 import (
 	"io"
+	"time"
 )
 
 // Reader is a traffic shaper struct that implements io.Reader interface. A
@@ -24,6 +25,10 @@ func (rr *Reader) Read(p []byte) (n int, err error) {
 	m := l
 	for n < l && err == nil {
 		k := int(rr.B.giveTokensPriority(int64(m), rr.Pr))
+		if k <= 0 {
+			time.Sleep(1000 * 1000 * time.Microsecond / freq)
+			continue
+		}
 		var nn int
 		nn, err = rr.R.Read(p[n : n+k])
 		n += nn
