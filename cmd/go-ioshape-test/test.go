@@ -4,12 +4,17 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"sync/atomic"
 	"time"
 
 	"github.com/orkunkaraduman/go-ioshape"
 )
 
-func f(bu *ioshape.Bucket) {
+var count = int32(0)
+
+func get(bu *ioshape.Bucket, size int) {
+	atomic.AddInt32(&count, 1)
+	defer atomic.AddInt32(&count, -1)
 	resp, err := http.Get("http://ipv4.download.thinkbroadband.com/1GB.zip")
 	if err != nil {
 		panic(err)
@@ -18,7 +23,7 @@ func f(bu *ioshape.Bucket) {
 	r := &ioshape.Reader{B: bu, R: resp.Body}
 
 	start := time.Now()
-	b := make([]byte, 1024*1024)
+	b := make([]byte, size)
 	_, err = io.ReadFull(r, b[:])
 	if err != nil {
 		panic(err)
@@ -28,12 +33,15 @@ func f(bu *ioshape.Bucket) {
 
 func main() {
 	bu := ioshape.NewBucket()
-	bu.Set(128*1024, 0)
-	go f(bu)
-	go f(bu)
-	go f(bu)
+	bu.Set(16*1024, 0)
+	for i := 0; i < 4; i++ {
+		go get(bu, 64*1024)
+	}
 	time.Sleep(1 * time.Second)
-	//bu.Stop()
-	//fmt.Println("stopped")
-	time.Sleep(100 * time.Second)
+
+	/*bu.Stop()
+	fmt.Println("stopped")*/
+	for count > 0 {
+		time.Sleep(1 * time.Second)
+	}
 }

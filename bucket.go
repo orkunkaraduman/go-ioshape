@@ -57,12 +57,20 @@ func (bu *Bucket) timer() {
 				bu.tokens = b
 			}
 
+			m := n / 16
+			if m == 0 {
+				m = 1
+			}
+
 			for ok := true; ok; {
 				select {
 				case tokenRequest := <-bu.tokenRequests:
 					count := tokenRequest.count
 					if count > bu.tokens {
 						count = bu.tokens
+					}
+					if count > m {
+						count = m
 					}
 					tokenRequest.callback <- count
 					bu.tokens -= count
@@ -78,11 +86,11 @@ func (bu *Bucket) timer() {
 }
 
 func (bu *Bucket) Stop() {
+	bu.ticker.Stop()
 	select {
 	case bu.stopCh <- struct{}{}:
 	default:
 	}
-	bu.ticker.Stop()
 }
 
 func (bu *Bucket) Set(rate, burst int64) {
