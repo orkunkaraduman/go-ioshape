@@ -9,9 +9,10 @@ import (
 type bucketTokenRequest struct {
 	count    int64
 	callback chan int64
+	priority int
 }
 
-// Bucket shapes traffic given rate and burst.
+// Bucket shapes traffic given rate, burst and Reader/Writer priorities.
 type Bucket struct {
 	tokens        int64
 	n             int64
@@ -84,6 +85,9 @@ func (bu *Bucket) timer() {
 			if count > bu.m {
 				count = bu.m
 			}
+			if tokenRequest.priority > int(bu.ticks%freq) {
+				count = 0
+			}
 			tokenRequest.callback <- count
 			bu.tokens -= count
 		}
@@ -137,6 +141,18 @@ func (bu *Bucket) giveTokens(count int64) int64 {
 		bu.tokenRequests <- &bucketTokenRequest{
 			count:    count,
 			callback: callback}
+		return <-callback
+	}
+	return count
+}
+
+func (bu *Bucket) giveTokensPriority(count int64, priority int) int64 {
+	callback := make(chan int64)
+	if count > 0 && bu.stopped == 0 {
+		bu.tokenRequests <- &bucketTokenRequest{
+			count:    count,
+			callback: callback,
+			priority: priority}
 		return <-callback
 	}
 	return count

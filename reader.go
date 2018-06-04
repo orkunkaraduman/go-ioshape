@@ -6,9 +6,11 @@ import (
 
 // Reader is a traffic shaper struct that implements io.Reader interface. A
 // Reader reads from R by B.
+// Priority changes between 0 and 15: 0 is higher, 15 is lower.
 type Reader struct {
-	R io.Reader // underlying reader
-	B *Bucket   // bucket
+	R  io.Reader // underlying reader
+	B  *Bucket   // bucket
+	Pr int       // priority
 }
 
 // Read reads from R by b.
@@ -21,7 +23,7 @@ func (rr *Reader) Read(p []byte) (n int, err error) {
 	l := len(p)
 	m := l
 	for n < l && err == nil {
-		k := int(rr.B.giveTokens(int64(m)))
+		k := int(rr.B.giveTokensPriority(int64(m), rr.Pr))
 		var nn int
 		nn, err = rr.R.Read(p[n : n+k])
 		n += nn
