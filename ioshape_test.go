@@ -5,7 +5,7 @@ import (
 	"io"
 	"io/ioutil"
 	"net/http"
-	"sync/atomic"
+	"sync"
 	"testing"
 	"time"
 )
@@ -18,11 +18,10 @@ func TestReader(t *testing.T) {
 	bu := NewBucket()
 	bu.Set(128*1024, 0)
 	size := 4 * 128 * 1024
-	count := int32(0)
 
+	var wg sync.WaitGroup
 	f := func(r io.Reader) {
-		atomic.AddInt32(&count, 1)
-		defer atomic.AddInt32(&count, -1)
+		defer wg.Done()
 		defer func() {
 			if rr, ok := r.(io.Closer); ok {
 				rr.Close()
@@ -42,24 +41,22 @@ func TestReader(t *testing.T) {
 		if err != nil {
 			panic(err)
 		}
+		wg.Add(1)
 		go f(resp.Body)
 	}
-	time.Sleep(10 * time.Millisecond)
 
-	for count > 0 {
-		time.Sleep(10 * time.Millisecond)
-	}
+	wg.Wait()
+	bu.Stop()
 }
 
 func TestWriter(t *testing.T) {
 	bu := NewBucket()
 	bu.Set(128*1024, 0)
 	size := 4 * 128 * 1024
-	count := int32(0)
 
+	var wg sync.WaitGroup
 	f := func(r io.Reader) {
-		atomic.AddInt32(&count, 1)
-		defer atomic.AddInt32(&count, -1)
+		defer wg.Done()
 		defer func() {
 			if wr, ok := r.(io.Closer); ok {
 				wr.Close()
@@ -79,24 +76,22 @@ func TestWriter(t *testing.T) {
 		if err != nil {
 			panic(err)
 		}
+		wg.Add(1)
 		go f(resp.Body)
 	}
-	time.Sleep(10 * time.Millisecond)
 
-	for count > 0 {
-		time.Sleep(10 * time.Millisecond)
-	}
+	wg.Wait()
+	bu.Stop()
 }
 
 func TestStopping(t *testing.T) {
 	bu := NewBucket()
 	bu.Set(128*1024, 0)
 	size := 4 * 128 * 1024
-	count := int32(0)
 
+	var wg sync.WaitGroup
 	f := func(r io.Reader) {
-		atomic.AddInt32(&count, 1)
-		defer atomic.AddInt32(&count, -1)
+		defer wg.Done()
 		defer func() {
 			if rr, ok := r.(io.Closer); ok {
 				rr.Close()
@@ -116,14 +111,11 @@ func TestStopping(t *testing.T) {
 		if err != nil {
 			panic(err)
 		}
+		wg.Add(1)
 		go f(resp.Body)
 	}
-	time.Sleep(10 * time.Millisecond)
-
 	time.Sleep(8 * time.Second)
 	bu.Stop()
 
-	for count > 0 {
-		time.Sleep(10 * time.Millisecond)
-	}
+	wg.Wait()
 }
