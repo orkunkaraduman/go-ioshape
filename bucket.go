@@ -32,6 +32,12 @@ func NewBucket() (bu *Bucket) {
 	return
 }
 
+func NewBucketRate(rate int64) (bu *Bucket) {
+	bu = NewBucket()
+	bu.SetRate(rate)
+	return
+}
+
 func (bu *Bucket) timer() {
 	for {
 		select {
@@ -93,6 +99,10 @@ func (bu *Bucket) Set(rate, burst int64) {
 	}
 	bu.n = rate / freq
 	bu.b = burst / freq
+}
+
+func (bu *Bucket) SetRate(rate int64) {
+	bu.Set(rate, 0)
 }
 
 func (bu *Bucket) getTokens(count int64) {

@@ -118,8 +118,9 @@ func TestStopping(t *testing.T) {
 		}
 		go f(resp.Body)
 	}
-	time.Sleep(8 * time.Second)
+	time.Sleep(10 * time.Millisecond)
 
+	time.Sleep(8 * time.Second)
 	bu.Stop()
 
 	for count > 0 {
