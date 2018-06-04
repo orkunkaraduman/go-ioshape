@@ -1,12 +1,17 @@
 package ioshape
 
-import "io"
+import (
+	"io"
+)
 
+// Writer is a traffic shaper struct that implements io.Writer interface. A
+// Writer writes to W by B.
 type Writer struct {
-	W io.Writer
-	B *Bucket
+	W io.Writer // underlying reader
+	B *Bucket   // bucket
 }
 
+// Write writes to W by b.
 func (wr *Writer) Write(p []byte) (n int, err error) {
 	if wr.B == nil {
 		n, err = wr.W.Write(p)

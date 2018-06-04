@@ -4,11 +4,14 @@ import (
 	"io"
 )
 
+// Reader is a traffic shaper struct that implements io.Reader interface. A
+// Reader reads from R by B.
 type Reader struct {
-	R io.Reader
-	B *Bucket
+	R io.Reader // underlying reader
+	B *Bucket   // bucket
 }
 
+// Read reads from R by b.
 func (rr *Reader) Read(p []byte) (n int, err error) {
 	if rr.B == nil {
 		n, err = rr.R.Read(p)

@@ -11,6 +11,7 @@ type bucketTokenRequest struct {
 	callback chan int64
 }
 
+// Bucket shapes traffic given rate and burst.
 type Bucket struct {
 	tokens        int64
 	n             int64
@@ -25,6 +26,7 @@ type Bucket struct {
 	tokenRequests chan *bucketTokenRequest
 }
 
+// NewBucket returns a new Bucket.
 func NewBucket() (bu *Bucket) {
 	bu = &Bucket{}
 	bu.ticker = time.NewTicker(1000 * 1000 * time.Microsecond / freq)
@@ -34,6 +36,7 @@ func NewBucket() (bu *Bucket) {
 	return
 }
 
+// NewBucketRate returns a new Bucket and sets rate.
 func NewBucketRate(rate int64) (bu *Bucket) {
 	bu = NewBucket()
 	bu.SetRate(rate)
@@ -87,6 +90,8 @@ func (bu *Bucket) timer() {
 	}
 }
 
+// Stop turns off a bucket. After Stop, bucket won't shape traffic. Stop
+// must be call to free resources, after the bucket doesn't be needing.
 func (bu *Bucket) Stop() {
 	bu.ticker.Stop()
 	select {
@@ -95,6 +100,8 @@ func (bu *Bucket) Stop() {
 	}
 }
 
+// Set sets buckets rate and burst in bytes per second. The burst should be
+// greater or equal than the rate. Otherwise burst will be equal rate.
 func (bu *Bucket) Set(rate, burst int64) {
 	if rate < 0 {
 		return
@@ -109,6 +116,7 @@ func (bu *Bucket) Set(rate, burst int64) {
 	bu.b = burst / freq
 }
 
+// SetRate sets rate and burst to the rate in bytes per second.
 func (bu *Bucket) SetRate(rate int64) {
 	bu.Set(rate, 0)
 }
