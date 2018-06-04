@@ -15,11 +15,11 @@ func (rr *Reader) Read(p []byte) (n int, err error) {
 
 	l := len(p)
 	for i := 0; n < l && err == nil; n += i {
-		i = n + 32*1024
-		if i > l {
-			i = l
+		j := n + chunkSize
+		if j > l {
+			j = l
 		}
-		i, err = rr.R.Read(p[n:i])
+		i, err = rr.R.Read(p[n:j])
 		rr.B.getTokens(int64(i))
 	}
 	return
