@@ -1,6 +1,6 @@
 package ioshape
 
 const (
-	freq      = 4
-	chunkSize = 32 * 1024
+	freq     = 16
+	chunkDiv = 16
 )

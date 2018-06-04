@@ -1,6 +1,8 @@
 package ioshape
 
-import "io"
+import (
+	"io"
+)
 
 type Reader struct {
 	R io.Reader
@@ -14,13 +16,13 @@ func (rr *Reader) Read(p []byte) (n int, err error) {
 	}
 
 	l := len(p)
-	for i := 0; n < l && err == nil; n += i {
-		j := n + chunkSize
-		if j > l {
-			j = l
-		}
-		i, err = rr.R.Read(p[n:j])
-		rr.B.getTokens(int64(i))
+	m := l
+	for n < l && err == nil {
+		k := int(rr.B.giveTokens(int64(m)))
+		var nn int
+		nn, err = rr.R.Read(p[n : n+k])
+		n += nn
+		m -= nn
 	}
 	return
 }

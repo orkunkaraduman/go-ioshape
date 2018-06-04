@@ -15,6 +15,7 @@ type Bucket struct {
 	tokens        int64
 	n             int64
 	b             int64
+	m             int64
 	setMu         sync.RWMutex
 	ticker        *time.Ticker
 	stopCh        chan struct{}
@@ -24,7 +25,7 @@ type Bucket struct {
 
 func NewBucket() (bu *Bucket) {
 	bu = &Bucket{}
-	bu.ticker = time.NewTicker(1000 * time.Millisecond / freq)
+	bu.ticker = time.NewTicker(1000 * 1000 * time.Microsecond / freq)
 	bu.stopCh = make(chan struct{}, 1)
 	bu.tokenRequests = make(chan *bucketTokenRequest)
 	go bu.timer()
@@ -36,7 +37,7 @@ func (bu *Bucket) timer() {
 		select {
 		case <-bu.stopCh:
 			atomic.StoreInt32(&bu.stopped, 1)
-			time.Sleep(1 * time.Millisecond)
+			time.Sleep(10 * time.Millisecond)
 			for ok := true; ok; {
 				select {
 				case tokenRequest := <-bu.tokenRequests:
@@ -51,36 +52,24 @@ func (bu *Bucket) timer() {
 			n := bu.n
 			b := bu.b
 			bu.setMu.RUnlock()
-
+			bu.m = n / chunkDiv
+			if n != 0 && bu.m == 0 {
+				bu.m = 1
+			}
 			bu.tokens += n
 			if bu.tokens > b {
 				bu.tokens = b
 			}
-
-			m := n / 16
-			if m == 0 {
-				m = 1
+		case tokenRequest := <-bu.tokenRequests:
+			count := tokenRequest.count
+			if count > bu.tokens {
+				count = bu.tokens
 			}
-
-			for ok := true; ok; {
-				select {
-				case tokenRequest := <-bu.tokenRequests:
-					count := tokenRequest.count
-					if count > bu.tokens {
-						count = bu.tokens
-					}
-					if count > m {
-						count = m
-					}
-					tokenRequest.callback <- count
-					bu.tokens -= count
-					if bu.tokens <= 0 {
-						ok = false
-					}
-				default:
-					ok = false
-				}
+			if count > bu.m {
+				count = bu.m
 			}
+			tokenRequest.callback <- count
+			bu.tokens -= count
 		}
 	}
 }
@@ -114,4 +103,15 @@ func (bu *Bucket) getTokens(count int64) {
 			callback: callback}
 		count -= <-callback
 	}
+}
+
+func (bu *Bucket) giveTokens(count int64) int64 {
+	callback := make(chan int64)
+	if count > 0 && bu.stopped == 0 {
+		bu.tokenRequests <- &bucketTokenRequest{
+			count:    count,
+			callback: callback}
+		return <-callback
+	}
+	return count
 }

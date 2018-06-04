@@ -14,16 +14,16 @@ func (wr *Writer) Write(p []byte) (n int, err error) {
 	}
 
 	l := len(p)
-	for i := 0; n < l && err == nil; n += i {
-		j := n + chunkSize
-		if j > l {
-			j = l
-		}
-		i, err = wr.W.Write(p[n:j])
-		if i != j-n {
+	m := l
+	for n < l && err == nil {
+		k := int(wr.B.giveTokens(int64(m)))
+		var nn int
+		nn, err = wr.W.Write(p[n : n+k])
+		if nn != k {
 			err = io.ErrShortWrite
 		}
-		wr.B.getTokens(int64(i))
+		n += nn
+		m -= nn
 	}
 	return
 }
