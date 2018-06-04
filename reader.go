@@ -6,7 +6,7 @@ import (
 
 // Reader is a traffic shaper struct that implements io.Reader interface. A
 // Reader reads from R by B.
-// Priority changes between 0 and 15: 0 is higher, 15 is lower.
+// Priority changes between 0(highest) and 15(lowest).
 type Reader struct {
 	R  io.Reader // underlying reader
 	B  *Bucket   // bucket

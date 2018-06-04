@@ -1,5 +1,5 @@
 /*
-Package ioshape provides IO structures and functions for Traffic Shaping using
+Package ioshape provides I/O structures and functions for Traffic Shaping using
 token-bucket algorithm.
 */
 package ioshape

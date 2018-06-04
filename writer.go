@@ -6,7 +6,7 @@ import (
 
 // Writer is a traffic shaper struct that implements io.Writer interface. A
 // Writer writes to W by B.
-// Priority changes between 0 and 15: 0 is higher, 15 is lower.
+// Priority changes between 0(highest) and 15(lowest).
 type Writer struct {
 	W  io.Writer // underlying reader
 	B  *Bucket   // bucket

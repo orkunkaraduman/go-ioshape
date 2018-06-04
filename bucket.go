@@ -12,7 +12,7 @@ type bucketTokenRequest struct {
 	priority int
 }
 
-// Bucket shapes traffic given rate, burst and Reader/Writer priorities.
+// Bucket shapes traffic by given rate, burst and Reader/Writer priorities.
 type Bucket struct {
 	tokens        int64
 	n             int64
