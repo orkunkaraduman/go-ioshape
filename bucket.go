@@ -14,10 +14,12 @@ type bucketTokenRequest struct {
 type Bucket struct {
 	tokens        int64
 	n             int64
+	k             int64
 	b             int64
 	m             int64
 	setMu         sync.RWMutex
 	ticker        *time.Ticker
+	ticks         int64
 	stopCh        chan struct{}
 	stopped       int32
 	tokenRequests chan *bucketTokenRequest
@@ -56,16 +58,21 @@ func (bu *Bucket) timer() {
 		case <-bu.ticker.C:
 			bu.setMu.RLock()
 			n := bu.n
+			k := bu.k
 			b := bu.b
 			bu.setMu.RUnlock()
 			bu.m = n / chunkDiv
-			if n != 0 && bu.m == 0 {
+			if bu.m == 0 {
 				bu.m = 1
 			}
 			bu.tokens += n
+			if bu.ticks%freq < k {
+				bu.tokens++
+			}
 			if bu.tokens > b {
 				bu.tokens = b
 			}
+			bu.ticks++
 		case tokenRequest := <-bu.tokenRequests:
 			count := tokenRequest.count
 			if count > bu.tokens {
@@ -98,6 +105,7 @@ func (bu *Bucket) Set(rate, burst int64) {
 		burst = rate
 	}
 	bu.n = rate / freq
+	bu.k = rate % freq
 	bu.b = burst / freq
 }
 
