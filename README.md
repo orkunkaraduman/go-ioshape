@@ -1,9 +1,10 @@
-# Go Traffic Shaper and Limiter
+# Go Traffic Shaper
 
-[![GoDoc](https://godoc.org/github.com/orkunkaraduman/go-ioshaper?status.svg)](https://godoc.org/github.com/orkunkaraduman/go-ioshaper)
+[![GoDoc](https://godoc.org/github.com/orkunkaraduman/go-ioshape?status.svg)](https://godoc.org/github.com/orkunkaraduman/go-ioshape)
 
-The repository provides `ioshaper` package shapes I/O traffic using
-token-bucket algorithm.
+The repository provides `ioshape` package shapes I/O traffic using
+token-bucket algorithm. It is used for creating bandwidth limiting applications,
+needing traffic limiting or throttling or prioritization.
 
 ## Examples
 
