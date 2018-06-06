@@ -24,14 +24,20 @@ func (wr *Writer) Write(p []byte) (n int, err error) {
 	l := len(p)
 	m := l
 	for n < l && err == nil {
-		k := int(wr.B.giveTokensPriority(int64(m), wr.Pr))
+		k := int(wr.B.getTokens(int64(m), wr.Pr))
 		if k <= 0 {
-			time.Sleep(1000 * 1000 * time.Microsecond / freq)
+			time.Sleep(time.Second / freq)
 			continue
 		}
 		var nn int
 		nn, err = wr.W.Write(p[n : n+k])
+		if nn < 0 || nn > k {
+			wr.B.giveTokens(int64(k))
+			err = ErrOutOfRange
+			continue
+		}
 		if nn != k {
+			wr.B.giveTokens(int64(k - nn))
 			err = io.ErrShortWrite
 		}
 		n += nn

@@ -12,6 +12,10 @@ type bucketTokenRequest struct {
 	priority int
 }
 
+type bucketTokenReturn struct {
+	count int64
+}
+
 // Bucket shapes traffic by given rate, burst and Reader/Writer priorities.
 type Bucket struct {
 	tokens        int64
@@ -25,14 +29,16 @@ type Bucket struct {
 	stopCh        chan struct{}
 	stopped       int32
 	tokenRequests chan *bucketTokenRequest
+	tokenReturns  chan *bucketTokenReturn
 }
 
 // NewBucket returns a new Bucket.
 func NewBucket() (bu *Bucket) {
 	bu = &Bucket{}
-	bu.ticker = time.NewTicker(1000 * 1000 * time.Microsecond / freq)
+	bu.ticker = time.NewTicker(time.Second / freq)
 	bu.stopCh = make(chan struct{}, 1)
 	bu.tokenRequests = make(chan *bucketTokenRequest)
+	bu.tokenReturns = make(chan *bucketTokenReturn)
 	go bu.timer()
 	return
 }
@@ -45,6 +51,7 @@ func NewBucketRate(rate int64) (bu *Bucket) {
 }
 
 func (bu *Bucket) timer() {
+	var n, k, b, m int64
 	for {
 		select {
 		case <-bu.stopCh:
@@ -61,14 +68,11 @@ func (bu *Bucket) timer() {
 			return
 		case <-bu.ticker.C:
 			bu.setMu.RLock()
-			n := bu.n
-			k := bu.k
-			b := bu.b
+			n = bu.n
+			k = bu.k
+			b = bu.b
+			m = bu.m
 			bu.setMu.RUnlock()
-			bu.m = n / chunkDiv
-			if bu.m == 0 {
-				bu.m = 1
-			}
 			bu.tokens += n
 			if bu.ticks%freq < k {
 				bu.tokens++
@@ -77,19 +81,28 @@ func (bu *Bucket) timer() {
 				bu.tokens = b
 			}
 			bu.ticks++
+			if bu.ticks > freq {
+				bu.ticks = 0
+			}
 		case tokenRequest := <-bu.tokenRequests:
 			count := tokenRequest.count
 			if count > bu.tokens {
 				count = bu.tokens
 			}
-			if count > bu.m {
-				count = bu.m
+			if count > m {
+				count = m
 			}
-			if tokenRequest.priority > int(bu.ticks%freq) {
+			if tokenRequest.priority > int((priorityScale*bu.ticks/freq)%priorityScale) {
 				count = 0
 			}
 			tokenRequest.callback <- count
 			bu.tokens -= count
+		case tokenReturn := <-bu.tokenReturns:
+			count := tokenReturn.count
+			bu.tokens += count
+			if bu.tokens > b {
+				bu.tokens = b
+			}
 		}
 	}
 }
@@ -118,6 +131,10 @@ func (bu *Bucket) Set(rate, burst int64) {
 	bu.n = rate / freq
 	bu.k = rate % freq
 	bu.b = burst / freq
+	bu.m = bu.n / chunkDiv
+	if bu.m == 0 {
+		bu.m = 1
+	}
 }
 
 // SetRate sets rate and burst to the rate in bytes per second.
@@ -125,28 +142,7 @@ func (bu *Bucket) SetRate(rate int64) {
 	bu.Set(rate, 0)
 }
 
-func (bu *Bucket) getTokens(count int64) {
-	callback := make(chan int64)
-	for count > 0 && bu.stopped == 0 {
-		bu.tokenRequests <- &bucketTokenRequest{
-			count:    count,
-			callback: callback}
-		count -= <-callback
-	}
-}
-
-func (bu *Bucket) giveTokens(count int64) int64 {
-	callback := make(chan int64)
-	if count > 0 && bu.stopped == 0 {
-		bu.tokenRequests <- &bucketTokenRequest{
-			count:    count,
-			callback: callback}
-		return <-callback
-	}
-	return count
-}
-
-func (bu *Bucket) giveTokensPriority(count int64, priority int) int64 {
+func (bu *Bucket) getTokens(count int64, priority int) int64 {
 	callback := make(chan int64)
 	if count > 0 && bu.stopped == 0 {
 		bu.tokenRequests <- &bucketTokenRequest{
@@ -156,4 +152,9 @@ func (bu *Bucket) giveTokensPriority(count int64, priority int) int64 {
 		return <-callback
 	}
 	return count
+}
+
+func (bu *Bucket) giveTokens(count int64) {
+	bu.tokenReturns <- &bucketTokenReturn{
+		count: count}
 }

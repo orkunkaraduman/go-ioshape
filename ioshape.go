@@ -5,13 +5,19 @@ token-bucket algorithm.
 package ioshape
 
 import (
+	"errors"
 	"io"
 )
 
 const (
-	freq     = 16
-	chunkDiv = 16
+	freq          = 16
+	priorityScale = 16
+	chunkDiv      = 1
+	chunkSize     = 32 * 1024
 )
+
+// ErrOutOfRange is the error used for the result of r/w is out of range.
+var ErrOutOfRange = errors.New("out of range")
 
 // CopyB is identical to io.Copy except that it shapes traffic by b *Bucket.
 func CopyB(dst io.Writer, src io.Reader, b *Bucket) (written int64, err error) {

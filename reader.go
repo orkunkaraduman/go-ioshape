@@ -24,15 +24,44 @@ func (rr *Reader) Read(p []byte) (n int, err error) {
 	l := len(p)
 	m := l
 	for n < l && err == nil {
-		k := int(rr.B.giveTokensPriority(int64(m), rr.Pr))
+		k := int(rr.B.getTokens(int64(m), rr.Pr))
 		if k <= 0 {
-			time.Sleep(1000 * 1000 * time.Microsecond / freq)
+			time.Sleep(time.Second / freq)
 			continue
 		}
 		var nn int
 		nn, err = rr.R.Read(p[n : n+k])
+		if nn < 0 || nn > k {
+			rr.B.giveTokens(int64(k))
+			err = ErrOutOfRange
+			continue
+		}
+		if nn != k {
+			rr.B.giveTokens(int64(k - nn))
+		}
 		n += nn
 		m -= nn
+		/*k := m
+		if k > chunkSize {
+			k = chunkSize
+		}
+		var nn int
+		nn, err = rr.R.Read(p[n : n+k])
+		if nn < 0 || nn > k {
+			err = ErrOutOfRange
+			continue
+		}
+		n += nn
+		m -= nn
+		k = nn
+		for {
+			k -= int(rr.B.getTokens(int64(k), rr.Pr))
+			if k > 0 {
+				time.Sleep(time.Second / freq)
+				continue
+			}
+			break
+		}*/
 	}
 	return
 }
