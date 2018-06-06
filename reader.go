@@ -41,27 +41,6 @@ func (rr *Reader) Read(p []byte) (n int, err error) {
 		}
 		n += nn
 		m -= nn
-		/*k := m
-		if k > chunkSize {
-			k = chunkSize
-		}
-		var nn int
-		nn, err = rr.R.Read(p[n : n+k])
-		if nn < 0 || nn > k {
-			err = ErrOutOfRange
-			continue
-		}
-		n += nn
-		m -= nn
-		k = nn
-		for {
-			k -= int(rr.B.getTokens(int64(k), rr.Pr))
-			if k > 0 {
-				time.Sleep(time.Second / freq)
-				continue
-			}
-			break
-		}*/
 	}
 	return
 }
