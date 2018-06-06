@@ -26,7 +26,7 @@ func (wr *Writer) Write(p []byte) (n int, err error) {
 	for n < l && err == nil {
 		k := int(wr.B.getTokens(int64(m), wr.Pr))
 		if k <= 0 {
-			time.Sleep(time.Second / freq)
+			time.Sleep(time.Second / (freq * freqMul))
 			continue
 		}
 		var nn int

@@ -11,6 +11,7 @@ import (
 
 const (
 	freq          = 16
+	freqMul       = 4
 	priorityScale = 16
 	chunkDiv      = 1
 	chunkSize     = 32 * 1024
