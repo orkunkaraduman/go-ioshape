@@ -130,7 +130,7 @@ func (bu *Bucket) Set(rate, burst int64) {
 	}
 	bu.n = rate / freq
 	bu.k = rate % freq
-	bu.b = burst / freq
+	bu.b = burst + bu.n
 	bu.m = bu.n / chunkDiv
 	if bu.m == 0 {
 		bu.m = 1
