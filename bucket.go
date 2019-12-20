@@ -2,7 +2,6 @@ package ioshape
 
 import (
 	"sync"
-	"sync/atomic"
 	"time"
 )
 
@@ -27,7 +26,8 @@ type Bucket struct {
 	ticker        *time.Ticker
 	ticks         int64
 	stopCh        chan struct{}
-	stopped       int32
+	stopMu        sync.Mutex
+	stopped       bool
 	tokenRequests chan *bucketTokenRequest
 	tokenReturns  chan *bucketTokenReturn
 }
@@ -55,17 +55,8 @@ func (bu *Bucket) timer() {
 	for {
 		select {
 		case <-bu.stopCh:
-			atomic.StoreInt32(&bu.stopped, 1)
-			time.Sleep(10 * time.Millisecond)
-			for ok := true; ok; {
-				select {
-				case tokenRequest := <-bu.tokenRequests:
-					tokenRequest.callback <- tokenRequest.count
-				default:
-					ok = false
-				}
-			}
 			return
+
 		case <-bu.ticker.C:
 			bu.setMu.RLock()
 			n = bu.n
@@ -84,6 +75,7 @@ func (bu *Bucket) timer() {
 			if bu.ticks > freq {
 				bu.ticks = 0
 			}
+
 		case tokenRequest := <-bu.tokenRequests:
 			count := tokenRequest.count
 			if count > bu.tokens {
@@ -97,6 +89,7 @@ func (bu *Bucket) timer() {
 			}
 			tokenRequest.callback <- count
 			bu.tokens -= count
+
 		case tokenReturn := <-bu.tokenReturns:
 			count := tokenReturn.count
 			bu.tokens += count
@@ -110,11 +103,14 @@ func (bu *Bucket) timer() {
 // Stop turns off a bucket. After Stop, bucket won't shape traffic. Stop
 // must be call to free resources, after the bucket doesn't be needing.
 func (bu *Bucket) Stop() {
-	bu.ticker.Stop()
-	select {
-	case bu.stopCh <- struct{}{}:
-	default:
+	bu.stopMu.Lock()
+	defer bu.stopMu.Unlock()
+	if bu.stopped {
+		return
 	}
+	bu.ticker.Stop()
+	close(bu.stopCh)
+	bu.stopped = true
 }
 
 // Set sets buckets rate and burst in bytes per second. The burst should be
@@ -144,17 +140,24 @@ func (bu *Bucket) SetRate(rate int64) {
 
 func (bu *Bucket) getTokens(count int64, priority int) int64 {
 	callback := make(chan int64)
-	if count > 0 && bu.stopped == 0 {
-		bu.tokenRequests <- &bucketTokenRequest{
+	if count > 0 {
+		select {
+		case bu.tokenRequests <- &bucketTokenRequest{
 			count:    count,
 			callback: callback,
-			priority: priority}
-		return <-callback
+			priority: priority}:
+			return <-callback
+		case <-bu.stopCh:
+			return count
+		}
 	}
 	return count
 }
 
 func (bu *Bucket) giveTokens(count int64) {
-	bu.tokenReturns <- &bucketTokenReturn{
-		count: count}
+	select {
+	case bu.tokenReturns <- &bucketTokenReturn{
+		count: count}:
+	case <-bu.stopCh:
+	}
 }
