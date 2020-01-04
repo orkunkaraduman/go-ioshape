@@ -52,6 +52,8 @@ func NewBucketRate(rate int64) (bu *Bucket) {
 
 func (bu *Bucket) timer() {
 	var n, k, b, m int64
+	tokenRequests := bu.tokenRequests
+	var pendingRequest *bucketTokenRequest
 	for {
 		select {
 		case <-bu.stopCh:
@@ -76,19 +78,20 @@ func (bu *Bucket) timer() {
 				bu.ticks = 0
 			}
 
-		case tokenRequest := <-bu.tokenRequests:
-			count := tokenRequest.count
-			if count > bu.tokens {
-				count = bu.tokens
+			if pendingRequest != nil {
+				done := bu.handleReaquest(pendingRequest, m)
+				if !done {
+					panic("This should not happen")
+				}
+				tokenRequests = bu.tokenRequests
 			}
-			if count > m {
-				count = m
+
+		case tokenRequest := <-tokenRequests:
+			done := bu.handleReaquest(tokenRequest, m)
+			if !done {
+				tokenRequests = nil
+				pendingRequest = tokenRequest
 			}
-			if tokenRequest.priority > int((priorityScale*bu.ticks/freq)%priorityScale) {
-				count = 0
-			}
-			tokenRequest.callback <- count
-			bu.tokens -= count
 
 		case tokenReturn := <-bu.tokenReturns:
 			count := tokenReturn.count
@@ -98,6 +101,26 @@ func (bu *Bucket) timer() {
 			}
 		}
 	}
+}
+
+// handleReaquest may only be called from the timer loop
+func (bu *Bucket) handleReaquest(r *bucketTokenRequest, m int64) bool {
+	count := r.count
+	if count > bu.tokens {
+		count = bu.tokens
+	}
+	if count > m {
+		count = m
+	}
+	if count == 0 {
+		return false
+	}
+	if r.priority > int((priorityScale*bu.ticks/freq)%priorityScale) {
+		count = 0
+	}
+	r.callback <- count
+	bu.tokens -= count
+	return true
 }
 
 // Stop turns off a bucket. After Stop, bucket won't shape traffic. Stop
@@ -146,7 +169,12 @@ func (bu *Bucket) getTokens(count int64, priority int) int64 {
 			count:    count,
 			callback: callback,
 			priority: priority}:
-			return <-callback
+			select {
+			case c := <-callback:
+				return c
+			case <-bu.stopCh:
+				return count
+			}
 		case <-bu.stopCh:
 			return count
 		}
