@@ -1,6 +1,7 @@
 package ioshape
 
 import (
+	"fmt"
 	"sync"
 	"time"
 )
@@ -28,17 +29,20 @@ type Bucket struct {
 	stopCh        chan struct{}
 	stopMu        sync.Mutex
 	stopped       bool
+	doneCh        chan struct{}
 	tokenRequests chan *bucketTokenRequest
 	tokenReturns  chan *bucketTokenReturn
 }
 
 // NewBucket returns a new Bucket.
 func NewBucket() (bu *Bucket) {
-	bu = &Bucket{}
-	bu.ticker = time.NewTicker(time.Second / freq)
-	bu.stopCh = make(chan struct{}, 1)
-	bu.tokenRequests = make(chan *bucketTokenRequest)
-	bu.tokenReturns = make(chan *bucketTokenReturn)
+	bu = &Bucket{
+		ticker:        time.NewTicker(time.Second / freq),
+		stopCh:        make(chan struct{}),
+		doneCh:        make(chan struct{}),
+		tokenRequests: make(chan *bucketTokenRequest),
+		tokenReturns:  make(chan *bucketTokenReturn),
+	}
 	go bu.timer()
 	return
 }
@@ -51,6 +55,7 @@ func NewBucketRate(rate int64) (bu *Bucket) {
 }
 
 func (bu *Bucket) timer() {
+	defer close(bu.doneCh)
 	var n, k, b, m int64
 	tokenRequests := bu.tokenRequests
 	var pendingRequest *bucketTokenRequest
@@ -81,9 +86,11 @@ func (bu *Bucket) timer() {
 			if pendingRequest != nil {
 				done := bu.handleReaquest(pendingRequest, m)
 				if !done {
-					panic("This should not happen")
+					fmt.Println("Warning: This should not happen")
+					pendingRequest.callback <- pendingRequest.count
 				}
 				tokenRequests = bu.tokenRequests
+				pendingRequest = nil
 			}
 
 		case tokenRequest := <-tokenRequests:
@@ -172,10 +179,10 @@ func (bu *Bucket) getTokens(count int64, priority int) int64 {
 			select {
 			case c := <-callback:
 				return c
-			case <-bu.stopCh:
+			case <-bu.doneCh:
 				return count
 			}
-		case <-bu.stopCh:
+		case <-bu.doneCh:
 			return count
 		}
 	}
@@ -186,6 +193,6 @@ func (bu *Bucket) giveTokens(count int64) {
 	select {
 	case bu.tokenReturns <- &bucketTokenReturn{
 		count: count}:
-	case <-bu.stopCh:
+	case <-bu.doneCh:
 	}
 }

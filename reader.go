@@ -14,6 +14,10 @@ type Reader struct {
 	Pr int       // priority
 }
 
+func (rr *Reader) Close() error {
+	return nil
+}
+
 // Read reads from R by b.
 func (rr *Reader) Read(p []byte) (n int, err error) {
 	if rr.B == nil {
